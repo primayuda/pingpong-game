@@ -1,11 +1,11 @@
 # Resume Guide
 
-Project folder: `/Users/prima/Development/pingpong-game`
+Project folder: clone or open this repo locally (e.g. `~/Development/pingpong-game`).
 
 ## Quick start
 
 ```bash
-cd /Users/prima/Development/pingpong-game
+cd pingpong-game   # from your clone directory
 open pingpong.html          # play locally
 npm run dev                 # local Cloudflare preview
 npm run deploy              # deploy to Cloudflare manually
