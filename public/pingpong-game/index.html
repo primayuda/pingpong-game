@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Table Tennis</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background-color: #0f172a;
+      background-image:
+        linear-gradient(rgba(15, 23, 42, 0.55), rgba(15, 23, 42, 0.55)),
+        url('https://raw.githubusercontent.com/https-deeplearning-ai/lc-build-with-andrew-platform/main/img/tabletennis43.jpg');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+      color: #e2e8f0;
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 1rem;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      letter-spacing: 0.05em;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+    }
+
+    canvas {
+      display: block;
+      border: 2px solid #334155;
+      border-radius: 4px;
+      background: #1e3a2f;
+      cursor: default;
+      width: 100%;
+      max-width: 900px;
+      height: auto;
+      aspect-ratio: 900 / 500;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+
+    .settings-panel {
+      width: 100%;
+      max-width: 900px;
+      margin-bottom: 0.75rem;
+      padding: 0.75rem 1rem;
+      background: rgba(30, 41, 59, 0.92);
+      border: 1px solid #334155;
+      border-radius: 6px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1.25rem;
+      font-size: 0.875rem;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    }
+
+    .settings-panel .group-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      opacity: 0.55;
+      margin-right: -0.5rem;
+    }
+
+    .bottom-bar {
+      width: 100%;
+      max-width: 900px;
+      margin-top: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      padding: 0.5rem 1rem;
+      background: rgba(30, 41, 59, 0.92);
+      border: 1px solid #334155;
+      border-radius: 6px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    }
+
+    .scoreboard {
+      display: flex;
+      gap: 2.5rem;
+      font-size: 1.25rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .scoreboard span { opacity: 0.7; font-size: 0.875rem; margin-right: 0.35rem; }
+    .scoreboard .player-score { color: #38bdf8; }
+    .scoreboard .ai-score { color: #f472b6; }
+
+    .settings {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .difficulty-options {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .settings label {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+      opacity: 0.85;
+      user-select: none;
+    }
+
+    .settings label:has(input:checked) {
+      opacity: 1;
+      color: #38bdf8;
+    }
+
+    .settings input[type="radio"] {
+      accent-color: #38bdf8;
+      width: 1rem;
+      height: 1rem;
+      cursor: pointer;
+    }
+
+    .points-options {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .hint {
+      margin-top: 0.5rem;
+      font-size: 0.8rem;
+      opacity: 0.75;
+      text-align: center;
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+    }
+
+    .settings-panel.is-locked {
+      opacity: 0.55;
+    }
+  </style>
+</head>
+<body>
+  <h1>Table Tennis</h1>
+
+  <div class="settings-panel" id="settings">
+    <span class="group-label">Difficulty</span>
+    <div class="settings difficulty-options">
+      <label><input type="radio" name="difficulty" value="easy" /> Easy</label>
+      <label><input type="radio" name="difficulty" value="normal" checked /> Normal</label>
+      <label><input type="radio" name="difficulty" value="hard" /> Hard</label>
+    </div>
+    <span class="group-label">Points</span>
+    <div class="settings points-options">
+      <label><input type="radio" name="win-score" value="3" /> 3</label>
+      <label><input type="radio" name="win-score" value="5" checked /> 5</label>
+      <label><input type="radio" name="win-score" value="7" /> 7</label>
+    </div>
+  </div>
+
+  <canvas id="game" width="900" height="500"></canvas>
+
+  <div class="bottom-bar">
+    <div class="scoreboard">
+      <div class="player-score"><span>You</span><strong id="player-score">0</strong></div>
+      <div class="ai-score"><span>Computer</span><strong id="ai-score">0</strong></div>
+    </div>
+  </div>
+
+  <p class="hint" id="hint">↑ ↓ to move · Space to start / serve / pause</p>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const playerScoreEl = document.getElementById('player-score');
+    const aiScoreEl = document.getElementById('ai-score');
+    const settingsEl = document.getElementById('settings');
+    const hintEl = document.getElementById('hint');
+
+    const DIFFICULTY = {
+      easy: {
+        playerPaddleHeight: 90,
+        aiPaddleHeight: 48,
+        paddleSpeed: 420,
+        ballSpeed: 280,
+        ballSpeedMax: 400,
+        aiSpeed: 110,
+        aiReaction: 0.018,
+        aiError: 120,
+        aiPredict: false,
+        aiTrackFrom: 0.55,
+        spinCurve: 35,
+        spinChaos: 0.5,
+      },
+      normal: {
+        playerPaddleHeight: 90,
+        aiPaddleHeight: 90,
+        paddleSpeed: 420,
+        ballSpeed: 320,
+        ballSpeedMax: 520,
+        aiSpeed: 110,
+        aiReaction: 0.08,
+        aiError: 120,
+        aiPredict: false,
+        aiTrackFrom: 0,
+        spinCurve: 50,
+        spinChaos: 1.0,
+      },
+      hard: {
+        playerPaddleHeight: 52,
+        aiPaddleHeight: 90,
+        paddleSpeed: 420,
+        ballSpeed: 430,
+        ballSpeedMax: 820,
+        aiSpeed: 520,
+        aiReaction: 0.22,
+        aiError: 4,
+        aiPredict: true,
+        aiTrackFrom: 0,
+        spinCurve: 75,
+        spinChaos: 1.6,
+      },
+    };
+
+    const BASE = {
+      paddleWidth: 12,
+      ballRadius: 8,
+    };
+
+    let CONFIG = { ...BASE, ...DIFFICULTY.normal, winScore: 5 };
+
+    const state = {
+      phase: 'menu',
+      server: 'player',
+      playerScore: 0,
+      aiScore: 0,
+      winner: null,
+      keys: { up: false, down: false },
+      player: { x: 24, y: 0, vy: 0 },
+      ai: { x: 0, y: 0, vy: 0 },
+      ball: { x: 0, y: 0, vx: 0, vy: 0, spin: 0 },
+      lastTime: 0,
+    };
+
+    // --- Sound (Web Audio API, no external files) ---
+    const audio = {
+      ctx: null,
+      init() {
+        if (!this.ctx) {
+          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+      },
+      tone(freq, duration, type = 'sine', volume = 0.15, decay = true) {
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, t);
+        gain.gain.setValueAtTime(volume, t);
+        if (decay) gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + duration);
+      },
+      noise(duration, volume = 0.08) {
+        if (!this.ctx) return;
+        const bufferSize = this.ctx.sampleRate * duration;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        const src = this.ctx.createBufferSource();
+        src.buffer = buffer;
+        const gain = this.ctx.createGain();
+        const t = this.ctx.currentTime;
+        gain.gain.setValueAtTime(volume, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+        src.connect(gain);
+        gain.connect(this.ctx.destination);
+        src.start(t);
+      },
+      paddleHit() {
+        this.tone(220 + Math.random() * 80, 0.06, 'square', 0.12);
+      },
+      wallBounce() {
+        this.tone(140, 0.04, 'triangle', 0.06);
+      },
+      scorePoint(forPlayer) {
+        if (forPlayer) {
+          this.tone(523, 0.1, 'sine', 0.14);
+          setTimeout(() => this.tone(659, 0.12, 'sine', 0.14), 80);
+        } else {
+          this.tone(330, 0.12, 'sine', 0.14);
+          setTimeout(() => this.tone(262, 0.15, 'sine', 0.12), 90);
+        }
+      },
+      serve() {
+        this.tone(400, 0.05, 'sine', 0.1);
+      },
+      gameWin() {
+        [523, 659, 784, 1047].forEach((f, i) => {
+          setTimeout(() => this.tone(f, 0.18, 'sine', 0.16), i * 110);
+        });
+      },
+      gameLose() {
+        [392, 330, 262, 196].forEach((f, i) => {
+          setTimeout(() => this.tone(f, 0.2, 'sine', 0.14), i * 130);
+        });
+      },
+    };
+
+    function getDifficulty() {
+      const selected = document.querySelector('input[name="difficulty"]:checked');
+      return selected ? selected.value : 'normal';
+    }
+
+    function getWinScore() {
+      const selected = document.querySelector('input[name="win-score"]:checked');
+      const value = parseInt(selected ? selected.value : '5', 10);
+      return [3, 5, 7].includes(value) ? value : 5;
+    }
+
+    function applySettings() {
+      const diff = getDifficulty();
+      CONFIG = { ...BASE, ...DIFFICULTY[diff], winScore: getWinScore() };
+      updateHint();
+    }
+
+    function updateHint() {
+      const diff = getDifficulty();
+      const labels = { easy: 'Easy', normal: 'Normal', hard: 'Hard (small paddle)' };
+      hintEl.textContent =
+        `↑ ↓ to move · Space to start / serve / pause · ${labels[diff]} · First to ${CONFIG.winScore}`;
+    }
+
+    function setSettingsLocked(locked) {
+      settingsEl.classList.toggle('is-locked', locked);
+      settingsEl.querySelectorAll('input').forEach((input) => {
+        input.disabled = locked;
+      });
+    }
+
+    function resetPaddles() {
+      state.player.y = canvas.height / 2 - CONFIG.playerPaddleHeight / 2;
+      state.ai.x = canvas.width - 24 - BASE.paddleWidth;
+      state.ai.y = canvas.height / 2 - CONFIG.aiPaddleHeight / 2;
+    }
+
+    function resetBall(server) {
+      state.server = server;
+      state.ball.x = canvas.width / 2;
+      state.ball.y = canvas.height / 2;
+      state.ball.vx = 0;
+      state.ball.vy = 0;
+      state.ball.spin = 0;
+      state.phase = 'serving';
+    }
+
+    function startServe() {
+      audio.init();
+      audio.serve();
+      const dir = state.server === 'player' ? 1 : -1;
+      const angle = Math.random() * 0.6 - 0.3;
+      state.ball.vx = CONFIG.ballSpeed * dir;
+      state.ball.vy = CONFIG.ballSpeed * angle;
+      state.ball.spin = (Math.random() - 0.5) * 1.5;
+      state.phase = 'playing';
+      setSettingsLocked(true);
+    }
+
+    function initGame() {
+      applySettings();
+      audio.init();
+      state.playerScore = 0;
+      state.aiScore = 0;
+      state.winner = null;
+      state.player.x = 24;
+      resetPaddles();
+      resetBall('player');
+      updateScoreDisplay();
+    }
+
+    function returnToMenu() {
+      state.phase = 'menu';
+      state.playerScore = 0;
+      state.aiScore = 0;
+      state.winner = null;
+      updateScoreDisplay();
+      setSettingsLocked(false);
+      resetPaddles();
+      state.ball.x = canvas.width / 2;
+      state.ball.y = canvas.height / 2;
+      state.ball.vx = 0;
+      state.ball.vy = 0;
+      state.ball.spin = 0;
+    }
+
+    function updateScoreDisplay() {
+      playerScoreEl.textContent = state.playerScore;
+      aiScoreEl.textContent = state.aiScore;
+    }
+
+    function clamp(val, min, max) {
+      return Math.max(min, Math.min(max, val));
+    }
+
+    function paddleDims(isPlayer) {
+      return {
+        w: BASE.paddleWidth,
+        h: isPlayer ? CONFIG.playerPaddleHeight : CONFIG.aiPaddleHeight,
+      };
+    }
+
+    function paddleHit(paddle, isPlayer) {
+      const b = state.ball;
+      const { w, h } = paddleDims(isPlayer);
+      const closestX = clamp(b.x, paddle.x, paddle.x + w);
+      const closestY = clamp(b.y, paddle.y, paddle.y + h);
+      const dx = b.x - closestX;
+      const dy = b.y - closestY;
+      return dx * dx + dy * dy <= BASE.ballRadius * BASE.ballRadius;
+    }
+
+    function handlePaddleCollision(paddle, isPlayer) {
+      audio.paddleHit();
+      const b = state.ball;
+      const { w, h } = paddleDims(isPlayer);
+      const hitPos = (b.y - (paddle.y + h / 2)) / (h / 2);
+      const maxAngle = Math.PI / 3;
+      const angle = hitPos * maxAngle;
+      const speed = Math.min(Math.hypot(b.vx, b.vy) * 1.05, CONFIG.ballSpeedMax);
+      const dir = isPlayer ? 1 : -1;
+      b.vx = Math.cos(angle) * speed * dir;
+      b.vy = Math.sin(angle) * speed;
+      b.x = isPlayer ? paddle.x + w + BASE.ballRadius : paddle.x - BASE.ballRadius;
+
+      const paddleVy = isPlayer ? state.player.vy : state.ai.vy;
+      const edgeSpin = hitPos * 5;
+      const motionSpin = clamp(paddleVy / CONFIG.paddleSpeed, -1, 1) * 6;
+      b.spin = clamp(b.spin * 0.2 + edgeSpin + motionSpin, -12, 12);
+    }
+
+    function updatePlayer(dt) {
+      let vy = 0;
+      if (state.keys.up) vy -= CONFIG.paddleSpeed;
+      if (state.keys.down) vy += CONFIG.paddleSpeed;
+      state.player.vy = vy;
+      state.player.y = clamp(
+        state.player.y + vy * dt,
+        0,
+        canvas.height - CONFIG.playerPaddleHeight
+      );
+    }
+
+    function updateAI(dt) {
+      const ai = state.ai;
+      const b = state.ball;
+      const ph = CONFIG.aiPaddleHeight;
+
+      let targetY = canvas.height / 2 - ph / 2;
+
+      if (b.vx > 0 && b.x > canvas.width * (CONFIG.aiTrackFrom || 0)) {
+        if (CONFIG.aiPredict) {
+          const timeToReach = (ai.x - b.x) / b.vx;
+          if (timeToReach > 0 && timeToReach < 2) {
+            targetY = b.y + b.vy * timeToReach - ph / 2;
+            targetY += b.spin * 28 * CONFIG.spinChaos;
+          } else {
+            targetY = b.y - ph / 2;
+          }
+        } else {
+          targetY = b.y - ph / 2;
+        }
+      }
+
+      targetY += (Math.random() - 0.5) * CONFIG.aiError;
+      const diff = targetY - ai.y;
+      const move = diff * CONFIG.aiReaction;
+      const maxMove = CONFIG.aiSpeed * dt;
+      const prevY = ai.y;
+      ai.y = clamp(ai.y + clamp(move, -maxMove, maxMove), 0, canvas.height - ph);
+      ai.vy = (ai.y - prevY) / dt;
+    }
+
+    function applySpinPhysics(dt) {
+      const b = state.ball;
+      const spin = b.spin;
+      const chaos = CONFIG.spinChaos;
+      const absSpin = Math.abs(spin);
+
+      b.vy += spin * CONFIG.spinCurve * dt;
+
+      if (absSpin > 0.6) {
+        const wobble = absSpin * chaos;
+        b.vy += (Math.random() - 0.5) * wobble * 70 * dt;
+        b.vx += (Math.random() - 0.5) * wobble * 35 * dt;
+      }
+
+      b.spin *= Math.pow(0.9, dt * 60);
+    }
+
+    function handleWallBounce(wasTop) {
+      const b = state.ball;
+      const chaos = CONFIG.spinChaos;
+
+      b.spin = -b.spin * 0.5 + (Math.random() - 0.5) * 3 * chaos;
+      if (Math.abs(b.spin) > 1) {
+        b.vx += (Math.random() - 0.5) * Math.abs(b.spin) * 18;
+        b.vy += (Math.random() - 0.5) * Math.abs(b.spin) * 10;
+      }
+
+      if (wasTop) {
+        b.y = BASE.ballRadius;
+        b.vy = Math.abs(b.vy);
+      } else {
+        b.y = canvas.height - BASE.ballRadius;
+        b.vy = -Math.abs(b.vy);
+      }
+      audio.wallBounce();
+    }
+
+    function updateBall(dt) {
+      const b = state.ball;
+      applySpinPhysics(dt);
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+
+      if (b.y - BASE.ballRadius <= 0 && b.vy < 0) {
+        handleWallBounce(true);
+      }
+      if (b.y + BASE.ballRadius >= canvas.height && b.vy > 0) {
+        handleWallBounce(false);
+      }
+
+      if (paddleHit(state.player, true) && b.vx < 0) {
+        handlePaddleCollision(state.player, true);
+      }
+      if (paddleHit(state.ai, false) && b.vx > 0) {
+        handlePaddleCollision(state.ai, false);
+      }
+
+      if (b.x + BASE.ballRadius < 0) {
+        state.aiScore++;
+        audio.scorePoint(false);
+        updateScoreDisplay();
+        checkWin();
+        if (state.phase !== 'gameOver') resetBall('ai');
+      } else if (b.x - BASE.ballRadius > canvas.width) {
+        state.playerScore++;
+        audio.scorePoint(true);
+        updateScoreDisplay();
+        checkWin();
+        if (state.phase !== 'gameOver') resetBall('player');
+      }
+    }
+
+    function checkWin() {
+      const ps = state.playerScore;
+      const as = state.aiScore;
+      const target = CONFIG.winScore;
+
+      if (ps >= target) {
+        state.winner = 'player';
+        state.phase = 'gameOver';
+        audio.gameWin();
+        setSettingsLocked(false);
+      } else if (as >= target) {
+        state.winner = 'ai';
+        state.phase = 'gameOver';
+        audio.gameLose();
+        setSettingsLocked(false);
+      }
+    }
+
+    function update(dt) {
+      if (state.phase === 'menu' || state.phase === 'gameOver') return;
+      if (state.phase === 'paused' || state.phase === 'serving') {
+        updatePlayer(dt);
+        return;
+      }
+      updatePlayer(dt);
+      updateAI(dt);
+      updateBall(dt);
+    }
+
+    function drawTable() {
+      ctx.fillStyle = '#1e3a2f';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = '#ffffff44';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 10]);
+      ctx.beginPath();
+      ctx.moveTo(canvas.width / 2, 0);
+      ctx.lineTo(canvas.width / 2, canvas.height);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.strokeStyle = '#ffffff66';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+    }
+
+    function drawPaddle(paddle, color, isPlayer) {
+      const { w, h } = paddleDims(isPlayer);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.roundRect(paddle.x, paddle.y, w, h, 4);
+      ctx.fill();
+    }
+
+    function drawBall() {
+      const b = state.ball;
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, BASE.ballRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (Math.abs(b.spin) > 0.4) {
+        const angle = performance.now() * 0.012 * b.spin;
+        ctx.strokeStyle = '#ffffffaa';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(
+          b.x + Math.cos(angle) * BASE.ballRadius * 0.55,
+          b.y + Math.sin(angle) * BASE.ballRadius * 0.55
+        );
+        ctx.lineTo(
+          b.x + Math.cos(angle + Math.PI) * BASE.ballRadius * 0.55,
+          b.y + Math.sin(angle + Math.PI) * BASE.ballRadius * 0.55
+        );
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = '#ffffff55';
+        ctx.beginPath();
+        ctx.arc(b.x - 2, b.y - 2, BASE.ballRadius * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawOverlay(title, subtitle) {
+      ctx.fillStyle = '#0f172acc';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = 'bold 2rem system-ui, sans-serif';
+      ctx.fillText(title, canvas.width / 2, canvas.height / 2 - 24);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '1rem system-ui, sans-serif';
+      ctx.fillText(subtitle, canvas.width / 2, canvas.height / 2 + 16);
+    }
+
+    function render() {
+      drawTable();
+      drawPaddle(state.player, '#38bdf8', true);
+      drawPaddle(state.ai, '#f472b6', false);
+      drawBall();
+
+      if (state.phase === 'menu') {
+        drawOverlay('Table Tennis', 'Press Space to start');
+      } else if (state.phase === 'gameOver') {
+        const msg = state.winner === 'player' ? 'You win!' : 'Computer wins!';
+        drawOverlay(msg, 'Press Space to play again · Esc for menu');
+      } else if (state.phase === 'serving') {
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#ffffffaa';
+        ctx.font = '0.9rem system-ui, sans-serif';
+        ctx.fillText('Press Space to serve', canvas.width / 2, canvas.height - 30);
+      } else if (state.phase === 'paused') {
+        drawOverlay('Paused', 'Press Space to resume');
+      }
+    }
+
+    function gameLoop(timestamp) {
+      const dt = Math.min((timestamp - state.lastTime) / 1000, 0.05);
+      state.lastTime = timestamp;
+      update(dt);
+      render();
+      requestAnimationFrame(gameLoop);
+    }
+
+    document.addEventListener('keydown', (e) => {
+      audio.init();
+
+      if (e.key === 'ArrowUp') { state.keys.up = true; e.preventDefault(); }
+      if (e.key === 'ArrowDown') { state.keys.down = true; e.preventDefault(); }
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (state.phase === 'menu') {
+          initGame();
+        } else if (state.phase === 'gameOver') {
+          initGame();
+        } else if (state.phase === 'serving') {
+          startServe();
+        } else if (state.phase === 'playing') {
+          state.phase = 'paused';
+        } else if (state.phase === 'paused') {
+          state.phase = 'playing';
+        }
+      }
+
+      if (e.key === 'Escape' && state.phase === 'gameOver') {
+        returnToMenu();
+      }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowUp') state.keys.up = false;
+      if (e.key === 'ArrowDown') state.keys.down = false;
+    });
+
+    document.querySelectorAll('input[name="difficulty"], input[name="win-score"]').forEach((el) => {
+      el.addEventListener('change', () => {
+        applySettings();
+        if (!settingsEl.classList.contains('is-locked')) resetPaddles();
+      });
+    });
+
+    applySettings();
+    resetPaddles();
+    state.ball.x = canvas.width / 2;
+    state.ball.y = canvas.height / 2;
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>

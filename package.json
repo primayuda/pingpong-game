@@ -1,0 +1,12 @@
+{
+  "name": "pingpong-game",
+  "private": true,
+  "scripts": {
+    "build": "mkdir -p public/pingpong-game && cp pingpong.html public/pingpong-game/index.html",
+    "deploy": "npm run build && wrangler deploy",
+    "dev": "npm run build && wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^4.30.0"
+  }
+}
